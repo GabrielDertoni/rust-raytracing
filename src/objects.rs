@@ -85,13 +85,6 @@ impl Hittable for HitList {
             .iter()
             .filter_map(|hittable| hittable.hit(ray, bounds.clone()))
             .min_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Greater))
-
-        /*
-        self.objects
-            .par_iter()
-            .filter_map(|hittable| hittable.hit(ray, bounds.clone()))
-            .min_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Greater))
-        */
     }
 }
 

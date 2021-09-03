@@ -1,9 +1,10 @@
 use std::default::Default;
 use std::sync::atomic::{ AtomicUsize, Ordering };
+use std::convert::TryInto;
 
 use rayon::prelude::*;
 use rayon::iter;
-use rand::{ thread_rng, Rng };
+use rand::random;
 
 use crate::objects::HitList;
 use crate::camera::Camera;
@@ -121,50 +122,40 @@ pub fn multi_thread_render(scene: Scene) {
 
     let width = width as u32;
     let height = height as u32;
+
+    let count = AtomicUsize::new(0);
+
     let mut img = image::RgbImage::new(width as u32, height as u32);
 
-    let (tx, rx) = std::sync::mpsc::channel();
+    img
+        .par_chunks_exact_mut(3)
+        .enumerate()
+        .for_each(|(i, pixel)| {
+            let y = i as u32 / width;
+            let x = i as u32 % width;
 
-    rayon::scope(|s| {
-        s.spawn(|_| {
-            for el in img.enumerate_pixels_mut() {
-                tx.send(el).unwrap();
+            // Invert the y coordinate so higher of y go up.
+            let y = height - y as u32;
+
+            let pixel = rgb_mut_ref(pixel.try_into().unwrap());
+
+            let mut color = Color::black();
+            for _ in 0..samples_per_pixel {
+                let u = (x as f64 + random::<f64>()) / (width  as f64 - 1.0);
+                let v = (y as f64 + random::<f64>()) / (height as f64 - 1.0);
+
+                color += camera.get_ray(u, v).compute_color(&world, max_bounces);
             }
-            drop(tx);
-        });
 
-        let (progress_sender, progress_receiver) = std::sync::mpsc::sync_channel(16);
+            *pixel = (color / (samples_per_pixel as f64)).sqrt().into();
 
-        s.spawn(move |_| {
-            rx.into_iter()
-                .par_bridge()
-                .for_each(|(x, y, pixel)| {
-                    let color = (0..samples_per_pixel)
-                        .into_par_iter()
-                        .map(|_| {
-                            let mut rng = thread_rng();
-                            let u = (x as f64 + rng.gen_range(0.0..1.0)) / (width  as f64 - 1.0);
-                            let v = ((height - y) as f64 + rng.gen_range(0.0..1.0)) / (height as f64 - 1.0);
+            let oldval = count.fetch_add(1, Ordering::SeqCst);
 
-                            camera.get_ray(u, v).compute_color(&world, max_bounces)
-                        })
-                        .reduce(Color::black, |a, b| a + b);
-
-                    *pixel = (color / (samples_per_pixel as f64)).sqrt().into();
-                    progress_sender.send(()).unwrap();
-                });
-            
-        });
-
-        s.spawn(move |_| {
-            let mut count = 0;
-            while let Ok(_) = progress_receiver.recv() {
-                count += 1;
-                let percent = (count as f64 * 100.0) / (width * height) as f64;
+            if oldval % 60 == 0 {
+                let percent = (oldval as f64 * 100.0) / (width * height as u32) as f64;
                 eprint!("\r[{:03.0}%] Rendering", percent);
             }
         });
-    });
 
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
@@ -173,13 +164,6 @@ pub fn multi_thread_render(scene: Scene) {
     encoder.encode_image(&img).unwrap();
 
     eprintln!("\nDone!");
-}
-
-fn rgb_mut_ref<T: image::Primitive>(data: &mut [T; 3]) -> &mut image::Rgb<T> {
-    // Safety: image::Rgb is repr(C) so it is transparent to the underlying data.
-    unsafe {
-        std::mem::transmute(data)
-    }
 }
 
 pub fn simple_multi_thread_render(scene: Scene) {
@@ -199,8 +183,6 @@ pub fn simple_multi_thread_render(scene: Scene) {
     let count = AtomicUsize::new(0);
 
     let render_row = |y, row: &mut [u8]| {
-        let mut rng = thread_rng();
-
         // Invert the y coordinate so higher of y go up.
         let y = height - y as u32;
 
@@ -212,8 +194,8 @@ pub fn simple_multi_thread_render(scene: Scene) {
         for (x, pixel) in row_iter.enumerate() {
             let mut color = Color::black();
             for _ in 0..samples_per_pixel {
-                let u = (x as f64 + rng.gen::<f64>()) / (width  as f64 - 1.0);
-                let v = (y as f64 + rng.gen::<f64>()) / (height as f64 - 1.0);
+                let u = (x as f64 + random::<f64>()) / (width  as f64 - 1.0);
+                let v = (y as f64 + random::<f64>()) / (height as f64 - 1.0);
 
                 color += camera.get_ray(u, v).compute_color(&world, max_bounces);
             }
@@ -263,12 +245,12 @@ pub fn single_thread_render(scene: Scene) {
 
     let mut count = 0;
     for (x, y, pixel) in img.enumerate_pixels_mut() {
+        let y = height - y;
         let mut color = Color::black();
 
         for _ in 0..samples_per_pixel {
-            let mut rng = thread_rng();
-            let u = (x as f64 + rng.gen_range(0.0..1.0)) / (width  as f64 - 1.0);
-            let v = ((height - y) as f64 + rng.gen_range(0.0..1.0)) / (height as f64 - 1.0);
+            let u = (x as f64 + random::<f64>()) / (width  as f64 - 1.0);
+            let v = (y as f64 + random::<f64>()) / (height as f64 - 1.0);
             color += camera.get_ray(u, v).compute_color(&world, max_bounces)
         }
 
@@ -281,3 +263,11 @@ pub fn single_thread_render(scene: Scene) {
 
     eprintln!("\nDone!");
 }
+
+fn rgb_mut_ref<T: image::Primitive>(data: &mut [T; 3]) -> &mut image::Rgb<T> {
+    // Safety: image::Rgb is repr(C) so it is transparent to the underlying data.
+    unsafe {
+        std::mem::transmute(data)
+    }
+}
+

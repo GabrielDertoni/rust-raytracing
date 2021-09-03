@@ -1,4 +1,5 @@
 #![feature(slice_as_chunks)]
+#![feature(atomic_from_mut)]
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
@@ -46,5 +47,5 @@ fn main() {
         .add(Sphere::new(Point3::new( 1.0,    0.0, -1.0),   0.5, material_right))
         .build();
 
-    simple_multi_thread_render(Scene::new(world, camera, render));
+    multi_thread_render(Scene::new(world, camera, render));
 }
