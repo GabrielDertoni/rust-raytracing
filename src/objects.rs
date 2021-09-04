@@ -41,15 +41,15 @@ impl<Mat: Material> Hittable for Sphere<Mat> {
             }
 
             let hit_point = ray.at(t);
-            let outward_normal = (hit_point - self.center).unit();
+            let outward_normal = (hit_point - self.center) / self.radius;
 
-            let normal = if ray.dir.dot(&outward_normal) < 0.0 {
-                outward_normal
+            let (normal, is_front) = if ray.dir.dot(&outward_normal) < 0.0 {
+                (outward_normal, true)
             } else {
-                -outward_normal
+                (-outward_normal, false)
             };
 
-            let scatter = self.material.scatter(ray, normal, hit_point);
+            let scatter = self.material.scatter(ray, normal, is_front);
             Some(Hit::new(hit_point, normal, t, scatter))
         } else {
             None

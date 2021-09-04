@@ -34,7 +34,10 @@ impl Ray {
             match (hit.scatter, max_depth) {
                 (_      , 0) |
                 (None   , _) => Color::black(),
-                (Some(s), _) => s.scatter.compute_color(world, max_depth - 1) * s.attenuation,
+                (Some(s), _) => {
+                    let ray = Ray::new(hit.point, s.scattered);
+                    ray.compute_color(world, max_depth - 1) * s.attenuation
+                }
             }
         } else {
             self.bg_color()

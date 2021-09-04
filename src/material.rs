@@ -1,25 +1,32 @@
 use std::default::Default;
 
-use rand::thread_rng;
+use rand::{ random, thread_rng };
 
 use crate::ray::Ray;
 use crate::vec3::{ Color, Vec3, Point3 };
 
 pub trait Material {
-    fn scatter(&self, ray: &Ray, normal: Vec3, point: Point3) -> Option<Scatter>;
+    fn scatter(&self, ray: &Ray, normal: Vec3, is_front: bool) -> Option<Scatter>;
+}
+
+impl<'a, Mat: Material> Material for &'a Mat {
+    #[inline]
+    fn scatter(&self, ray: &Ray, normal: Vec3, is_front: bool) -> Option<Scatter> {
+        Mat::scatter(*self, ray, normal, is_front)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Scatter {
     pub attenuation: Color,
-    pub scatter: Ray,
+    pub scattered: Vec3,
 }
 
 impl Scatter {
-    pub fn new(attenuation: Color, scatter: Ray) -> Self {
+    pub fn new(attenuation: Color, scattered: Vec3) -> Self {
         Self {
             attenuation,
-            scatter,
+            scattered,
         }
     }
 }
@@ -27,7 +34,7 @@ impl Scatter {
 
 #[derive(Debug, Clone)]
 pub struct Diffuse {
-    albedo: Color,
+    pub albedo: Color,
 }
 
 impl Diffuse {
@@ -37,7 +44,7 @@ impl Diffuse {
 }
 
 impl Material for Diffuse {
-    fn scatter(&self, _: &Ray, normal: Vec3, point: Point3) -> Option<Scatter> {
+    fn scatter(&self, _: &Ray, normal: Vec3, _: bool) -> Option<Scatter> {
         let mut rng = thread_rng();
         let mut scatter_dir = normal + Vec3::<f64>::random_unit(&mut rng);
 
@@ -45,8 +52,7 @@ impl Material for Diffuse {
             scatter_dir = normal;
         }
 
-        let scattered = Ray::new(point, scatter_dir);
-        Some(Scatter::new(self.albedo, scattered))
+        Some(Scatter::new(self.albedo, scatter_dir))
     }
 }
 
@@ -59,8 +65,8 @@ impl Default for Diffuse {
 
 #[derive(Debug, Clone)]
 pub struct Metal {
-    albedo: Color,
-    fuzzy: f64,
+    pub albedo: Color,
+    pub fuzzy: f64,
 }
 
 impl Metal {
@@ -70,13 +76,12 @@ impl Metal {
 }
 
 impl Material for Metal {
-    fn scatter(&self, ray: &Ray, normal: Vec3, point: Point3) -> Option<Scatter> {
+    fn scatter(&self, ray: &Ray, normal: Vec3,  _: bool) -> Option<Scatter> {
         let mut rng = thread_rng();
-        let reflected = ray.dir.reflect(normal) + Vec3::<f64>::random_unit(&mut rng) * self.fuzzy;
-        let scattered = Ray::new(point, reflected);
+        let reflected = reflect(ray.dir, normal) + Vec3::<f64>::random_unit(&mut rng) * self.fuzzy;
 
-        if scattered.dir.dot(&normal) >= 0.0 {
-            Some(Scatter::new(self.albedo, scattered))
+        if reflected.dot(&normal) >= 0.0 {
+            Some(Scatter::new(self.albedo, reflected))
         } else {
             None
         }
@@ -89,4 +94,52 @@ impl Default for Metal {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Dielectric {
+    pub ior: f64,
+}
+
+impl Dielectric {
+    pub fn new(ior: f64) -> Self {
+        Self { ior }
+    }
+
+    // Use Schlick's approximation for reflectance.
+    fn reflectance(cos: f64, ior_ratio: f64) -> f64 {
+        let r0 = ((1.0 - ior_ratio) / (1.0 + ior_ratio)).powi(2);
+        r0 + (1.0 - r0) * (1.0 - cos).powi(5)
+    }
+}
+
+impl Material for Dielectric {
+    fn scatter(&self, ray: &Ray, normal: Vec3, is_front: bool) -> Option<Scatter> {
+        let ior_ratio = if is_front { 1.0 / self.ior } else { self.ior };
+
+        let cos_theta = (-ray.dir).dot(&normal).min(1.0);
+        let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+
+        // Total Internal Reflection
+        let tir = ior_ratio * sin_theta > 1.0;
+        let reflectance = Dielectric::reflectance(cos_theta, ior_ratio);
+
+        let scattered = if tir || reflectance > random::<f64>() {
+            reflect(ray.dir.unit(), normal)
+        } else {
+            refract(ray.dir.unit(), normal, ior_ratio)
+        };
+
+        Some(Scatter::new(Color::white(), scattered))
+    }
+}
+
+pub fn reflect(incident: Vec3, normal: Vec3) -> Vec3 {
+    incident - normal * 2.0 * incident.dot(&normal)
+}
+
+fn refract(incident: Vec3, normal: Vec3, ior_ratio: f64) -> Vec3 {
+    let cos_theta = (-incident).dot(&normal).min(1.0);
+    let refracted_perp = (incident + normal * cos_theta) * ior_ratio;
+    let refracted_par  = -normal * (1.0 - refracted_perp.mag_sq()).abs().sqrt();
+    refracted_perp + refracted_par
+}
 

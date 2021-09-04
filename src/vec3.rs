@@ -1,19 +1,12 @@
+use std::fmt::{self, Display, Formatter};
 use std::ops::{
-    Add,
-    AddAssign,
-    Sub,
-    SubAssign,
-    Mul,
-    MulAssign,
-    Div,
-    DivAssign,
-    Neg,
-    Deref,
-    DerefMut,
+    Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign,
 };
-use std::fmt::{ self, Display, Formatter };
 
-use rand::{ Rng, distributions::{ Distribution, Standard } };
+use rand::{
+    distributions::{Distribution, Standard},
+    random, Rng,
+};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Vec3<T = f64> {
@@ -70,6 +63,10 @@ macro_rules! impl_vec3_float {
 
     (@once impl Vec3<$ty:ident>) => {
         impl Vec3<$ty> {
+            pub fn up() -> Self {
+                Vec3::new(0.0, 1.0, 0.0)
+            }
+
             pub fn mag(&self) -> $ty {
                 self.mag_sq().sqrt()
             }
@@ -84,6 +81,16 @@ macro_rules! impl_vec3_float {
 
             pub fn random_in_range(min: Self, max: Self, rng: &mut impl Rng) -> Self {
                 Self::lerp(min, max, rng.gen_range(0.0..1.0))
+            }
+
+            pub fn random_in_unit_disc() -> Self {
+                let theta = random::<$ty>() * std::$ty::consts::TAU;
+                let rho   = random::<$ty>();
+                Vec3::new(
+                    rho * theta.cos(),
+                    rho * theta.sin(),
+                    0.0
+                )
             }
 
             pub fn random_in_unit_sphere(rng: &mut impl Rng) -> Self {
@@ -104,12 +111,7 @@ macro_rules! impl_vec3_float {
             pub fn sqrt(&self) -> Self {
                 Vec3::new(self.x.sqrt(), self.y.sqrt(), self.z.sqrt())
             }
-
-            pub fn reflect(&self, normal: Self) -> Self {
-                *self - normal * 2.0 * self.dot(&normal)
-            }
         }
-
     }
 }
 
@@ -376,6 +378,14 @@ impl Color {
 
     pub fn blue() -> Color {
         Color::new(0.0, 0.0, 1.0)
+    }
+
+    pub fn random() -> Color {
+        Color::new(
+            random::<f64>(),
+            random::<f64>(),
+            random::<f64>(),
+        )
     }
 }
 

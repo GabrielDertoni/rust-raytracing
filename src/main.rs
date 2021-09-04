@@ -13,7 +13,7 @@ mod hittable;
 mod camera;
 mod render;
 
-use vec3::{ Point3, Color };
+use vec3::{ Vec3, Point3, Color };
 use objects::{ Sphere, WorldBuilder };
 use camera::Camera;
 use render::{
@@ -25,27 +25,46 @@ use render::{
 };
 
 fn main() {
-    let aspect_ratio = 16.0 / 9.0;
+    let aspect_ratio = 3.0 / 2.0;
 
     let render = RenderBuilder::new()
         .with_ratio(aspect_ratio, 1080)
-        .with_samples(300)
-        .with_max_bounces(10)
+        .with_samples(100)
+        .with_max_bounces(100)
         .build();
 
-    let camera = Camera::new(aspect_ratio);
+    let look_from  = Vec3::new(13.0, 2.0, 3.0);
+    let look_at    = Vec3::new(0.0, 0.0, 0.0);
+    let vup        = Vec3::<f64>::up();
+    let focus_dist = 10.0;
+    let aperture   = 0.1;
 
+    let camera = Camera::new(
+        look_from,
+        look_at,
+        vup,
+        20.0,
+        aspect_ratio,
+        aperture,
+        focus_dist,
+    );
+
+    /*
     let material_ground = material::Diffuse::new(Color::new(0.8, 0.8, 0.0));
-    let material_center = material::Diffuse::new(Color::new(0.7, 0.3, 0.3));
-    let material_left   = material::Metal::new(Color::new(0.8, 0.8, 0.8), 0.3);
-    let material_right  = material::Metal::new(Color::new(0.8, 0.6, 0.2), 0.1);
+    let material_center = material::Diffuse::new(Color::new(0.1, 0.2, 0.5));
+    let material_left   = material::Dielectric::new(1.5);
+    let material_right  = material::Metal::new(Color::new(0.8, 0.6, 0.2), 0.0);
 
     let world = WorldBuilder::default()
-        .add(Sphere::new(Point3::new( 0.0, -100.5, -1.0), 100.0, material_ground))
-        .add(Sphere::new(Point3::new( 0.0,    0.0, -1.0),   0.5, material_center))
-        .add(Sphere::new(Point3::new(-1.0,    0.0, -1.0),   0.5, material_left))
-        .add(Sphere::new(Point3::new( 1.0,    0.0, -1.0),   0.5, material_right))
+        .add(Sphere::new(Point3::new( 0.0, -100.5, -1.0), 100.0, material_ground.clone()))
+        .add(Sphere::new(Point3::new( 0.0,    0.0, -1.0),   0.5, material_center.clone()))
+        .add(Sphere::new(Point3::new(-1.0,    0.0, -1.0),   0.5, material_left.clone()))
+        .add(Sphere::new(Point3::new(-1.0,    0.0, -1.0), -0.45, material_left.clone()))
+        .add(Sphere::new(Point3::new( 1.0,    0.0, -1.0),   0.5, material_right.clone()))
         .build();
+    */
+
+    let world = render::random_scene();
 
     multi_thread_render(Scene::new(world, camera, render));
 }
