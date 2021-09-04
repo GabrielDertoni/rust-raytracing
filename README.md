@@ -1,8 +1,9 @@
 
 ## Description
 
-This code was implemented following the book
-[_Ray Tracing in One Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
+This code was implemented following the book [_Ray Tracing in One
+Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html).  I would
+definitely recomend to anyone interested.
 
 ## Benchmarks
 
@@ -50,3 +51,7 @@ Config:
 
 cargo run --release > img.jpg  370.62s user 1.69s system 348% cpu 1:46.87 total
 ```
+
+## Result
+
+![Result by the end of the book](outputs/img_final.jpg)
