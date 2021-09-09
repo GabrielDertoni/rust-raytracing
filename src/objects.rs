@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use rayon::prelude::*;
 
-use crate::vec3::*;
+use crate::utils::{ Vec3, Point3, Color };
 use crate::hittable::{ Hittable, Hit };
 use crate::material::Material;
 use crate::ray::Ray;
@@ -10,22 +10,22 @@ use crate::ray::Ray;
 #[derive(Debug, Clone)]
 pub struct Sphere<Mat> {
     pub center: Point3,
-    pub radius: f64,
+    pub radius: f32,
     pub material: Mat,
 }
 
 impl<Mat> Sphere<Mat> {
-    pub fn new(center: Point3, radius: f64, material: Mat) -> Self {
+    pub fn new(center: Point3, radius: f32, material: Mat) -> Self {
         Self { center, radius, material }
     }
 }
 
 impl<Mat: Material> Hittable for Sphere<Mat> {
-    fn hit(&self, ray: &Ray, bounds: Range<f64>) -> Option<Hit> {
+    fn hit(&self, ray: &Ray, bounds: Range<f32>) -> Option<Hit> {
         let oc = ray.origin - self.center;
-        let a = ray.dir.mag_sq();
+        let a = ray.dir.magnitude_squared();
         let half_b = oc.dot(&ray.dir);
-        let c = oc.mag_sq() - self.radius * self.radius;
+        let c = oc.magnitude_squared() - self.radius * self.radius;
         let discriminant = half_b * half_b - a * c;
 
         if discriminant > 0.0 {
@@ -80,7 +80,7 @@ impl HitList {
 }
 
 impl Hittable for HitList {
-    fn hit(&self, ray: &Ray, bounds: Range<f64>) -> Option<Hit> {
+    fn hit(&self, ray: &Ray, bounds: Range<f32>) -> Option<Hit> {
         self.objects
             .iter()
             .filter_map(|hittable| hittable.hit(ray, bounds.clone()))

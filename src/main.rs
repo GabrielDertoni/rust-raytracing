@@ -5,7 +5,7 @@
 
 use std::default::Default;
 
-mod vec3;
+mod utils;
 mod ray;
 mod objects;
 mod material;
@@ -13,7 +13,6 @@ mod hittable;
 mod camera;
 mod render;
 
-use vec3::{ Vec3, Point3, Color };
 use objects::{ Sphere, WorldBuilder };
 use camera::Camera;
 use render::{
@@ -28,14 +27,14 @@ fn main() {
     let aspect_ratio = 3.0 / 2.0;
 
     let render = RenderBuilder::new()
-        .with_ratio(aspect_ratio, 1080)
+        .with_ratio(aspect_ratio, 720)
         .with_samples(100)
-        .with_max_bounces(100)
+        .with_max_bounces(10)
         .build();
 
-    let look_from  = Vec3::new(13.0, 2.0, 3.0);
-    let look_at    = Vec3::new(0.0, 0.0, 0.0);
-    let vup        = Vec3::<f64>::up();
+    let look_from  = nalgebra_glm::vec3(13.0, 2.0, 3.0);
+    let look_at    = nalgebra_glm::vec3(0.0, 0.0, 0.0);
+    let vup        = nalgebra_glm::vec3(0.0, 1.0, 0.0);
     let focus_dist = 10.0;
     let aperture   = 0.1;
 

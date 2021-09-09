@@ -1,6 +1,6 @@
 use rand::{ thread_rng, Rng };
 
-use crate::vec3::*;
+use crate::utils::{ self, Color, Vec3, Point3, color };
 use crate::hittable::Hittable;
 
 #[derive(Debug, Clone, Copy)]
@@ -25,18 +25,18 @@ impl Ray {
         &self.origin
     }
 
-    pub fn at(&self, t: f64) -> Point3 {
+    pub fn at(&self, t: f32) -> Point3 {
         self.origin + self.dir * t
     }
 
     pub fn compute_color(&self, world: impl Hittable, max_depth: usize) -> Color {
-        if let Some(hit) = world.hit(self, 0.001..f64::INFINITY) {
+        if let Some(hit) = world.hit(self, 0.001..f32::INFINITY) {
             match (hit.scatter, max_depth) {
                 (_      , 0) |
-                (None   , _) => Color::black(),
+                (None   , _) => color::black(),
                 (Some(s), _) => {
                     let ray = Ray::new(hit.point, s.scattered);
-                    ray.compute_color(world, max_depth - 1) * s.attenuation
+                    ray.compute_color(world, max_depth - 1).component_mul(&s.attenuation)
                 }
             }
         } else {
@@ -45,8 +45,8 @@ impl Ray {
     }
 
     pub fn bg_color(&self) -> Color {
-        let dir = self.dir.unit();
+        let dir = self.dir.normalize();
         let t = dir.y / 2.0 + 0.5;
-        Color::lerp(Color::new(1.0, 1.0, 1.0), Color::new(0.5, 0.7, 1.0), t)
+        color::lerp(nalgebra_glm::vec3(1.0, 1.0, 1.0), nalgebra_glm::vec3(0.5, 0.7, 1.0), t)
     }
 }
