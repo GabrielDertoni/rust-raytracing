@@ -1,0 +1,22 @@
+Config
+======
+with_ratio: 1080
+with_samples: 100
+with_max_bounces: 100
+
+Linux (Ubuntu 18.04 LTS)
+========================
+Nalgebra `--release`
+time: 5:23.36
+
+Nalgebra `RUSTFLAGS="-C target-cpu=native" --release`
+time: 4:52.65
+
+My implementation `--release`
+time: 3:41.07
+
+My implementation `RUSTFLAGS="-C target-cpu=native" --release`
+time: 3:43.00
+
+Windows 11
+==========
