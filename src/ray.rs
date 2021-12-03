@@ -1,7 +1,7 @@
 use rand::{ thread_rng, Rng };
 
 use crate::utils::{ self, Color, Vec3, Point3, color };
-use crate::hittable::Hittable;
+use crate::hittable::{ Hittable, Hit };
 
 #[derive(Debug, Clone, Copy)]
 pub struct Ray {
@@ -30,18 +30,27 @@ impl Ray {
     }
 
     pub fn compute_color(&self, world: impl Hittable, max_depth: usize) -> Color {
-        if let Some(hit) = world.hit(self, 0.001..f32::INFINITY) {
-            match (hit.scatter, max_depth) {
-                (_      , 0) |
-                (None   , _) => color::black(),
-                (Some(s), _) => {
-                    let ray = Ray::new(hit.point, s.scattered);
-                    ray.compute_color(world, max_depth - 1).component_mul(&s.attenuation)
+        let mut ray = *self;
+        let mut color = Color::new(1., 1., 1.);
+        for _ in 0..max_depth {
+            match world.hit(&ray, 0.001..f32::INFINITY) {
+                None => {
+                    color.component_mul_assign(&self.bg_color());
+                    break;
+                }
+
+                Some(Hit { scatter: None, .. }) => {
+                    color.component_mul_assign(&color::black());
+                    break;
+                }
+
+                Some(Hit { scatter: Some(s), point, .. }) => {
+                    ray = Ray::new(point, s.scattered);
+                    color.component_mul_assign(&s.attenuation);
                 }
             }
-        } else {
-            self.bg_color()
         }
+        color
     }
 
     pub fn bg_color(&self) -> Color {
