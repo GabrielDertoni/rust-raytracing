@@ -132,6 +132,44 @@ impl Material for Dielectric {
     }
 }
 
+// This struct exists in order to avoid boxing.
+#[derive(Debug, Clone)]
+pub enum CommonMat {
+    Diffuse(Diffuse),
+    Metal(Metal),
+    Dielectric(Dielectric),
+}
+
+impl Material for CommonMat {
+    fn scatter(&self, ray: &Ray, normal: Vec3, is_front: bool) -> Option<Scatter> {
+        use CommonMat::*;
+
+        match self {
+            Diffuse(mat)     => mat.scatter(ray, normal, is_front),
+            Metal(mat)       => mat.scatter(ray, normal, is_front),
+            Dielectric(mat) => mat.scatter(ray, normal, is_front),
+        }
+    }
+}
+
+impl From<Diffuse> for CommonMat {
+    fn from(v: Diffuse) -> CommonMat {
+        CommonMat::Diffuse(v)
+    }
+}
+
+impl From<Metal> for CommonMat {
+    fn from(v: Metal) -> CommonMat {
+        CommonMat::Metal(v)
+    }
+}
+
+impl From<Dielectric> for CommonMat {
+    fn from(v: Dielectric) -> CommonMat {
+        CommonMat::Dielectric(v)
+    }
+}
+
 pub fn reflect(incident: Vec3, normal: Vec3) -> Vec3 {
     incident - normal * 2.0 * incident.dot(&normal)
 }

@@ -30,7 +30,7 @@ fn main() {
     let render = RenderBuilder::new()
         .with_ratio(aspect_ratio, 1080)
         .with_samples(100)
-        .with_max_bounces(100)
+        .with_max_bounces(8)
         .build();
 
     let look_from  = Vec3::new(13.0, 2.0, 3.0);

@@ -6,18 +6,20 @@ use rayon::prelude::*;
 use rayon::iter;
 use rand::random;
 
-use crate::objects::HitList;
+use crate::objects::{ BoxedHitList, Sphere };
+use crate::material::CommonMat;
+use crate::hittable::Hittable;
 use crate::camera::Camera;
 use crate::vec3::Color;
 
-pub struct Scene {
-    pub world: HitList,
+pub struct Scene<T> {
+    pub world: T,
     pub camera: Camera,
     pub config: Render,
 }
 
-impl Scene {
-    pub fn new(world: HitList, camera: Camera, config: Render) -> Self {
+impl<T: Hittable + Send + Sync> Scene<T> {
+    pub fn new(world: T, camera: Camera, config: Render) -> Self {
         Self { world, camera, config }
     }
 }
@@ -110,7 +112,7 @@ impl RenderBuilder {
     }
 }
 
-pub fn multi_thread_render(scene: Scene) {
+pub fn multi_thread_render<T: Hittable + Send + Sync>(scene: Scene<T>) {
     let Scene { world, camera, config } = scene;
     let Render {
         aspect_ratio: _,
@@ -166,7 +168,7 @@ pub fn multi_thread_render(scene: Scene) {
     eprintln!("\nDone!");
 }
 
-pub fn simple_multi_thread_render(scene: Scene) {
+pub fn simple_multi_thread_render<T: Hittable + Send + Sync>(scene: Scene<T>) {
     let Scene { world, camera, config } = scene;
     let Render {
         aspect_ratio: _,
@@ -223,7 +225,7 @@ pub fn simple_multi_thread_render(scene: Scene) {
     eprintln!("\nDone!");
 }
 
-pub fn single_thread_render(scene: Scene) {
+pub fn single_thread_render<T: Hittable>(scene: Scene<T>) {
     let Scene { world, camera, config } = scene;
     let Render {
         aspect_ratio: _,
@@ -271,7 +273,7 @@ fn rgb_mut_ref<T: image::Primitive>(data: &mut [T; 3]) -> &mut image::Rgb<T> {
     }
 }
 
-pub fn random_scene() -> HitList {
+pub fn random_scene() -> Vec<Sphere<CommonMat>> {
     use crate::objects::{ WorldBuilder, Sphere };
     use crate::material::{ Dielectric, Diffuse, Metal };
     use crate::vec3::{ Vec3, Point3 };
@@ -279,7 +281,7 @@ pub fn random_scene() -> HitList {
     let mut world_builder = WorldBuilder::default();
 
     let ground_material = Diffuse::new(Color::new(0.5, 0.5, 0.5));
-    world_builder.add(Sphere::new(Point3::new(0.0, -1000.0, 0.0), 1000.0, ground_material.clone()));
+    world_builder.add(Sphere::new(Point3::new(0.0, -1000.0, 0.0), 1000.0, ground_material.into()));
 
     for a in -11..11 {
         for b in -11..11 {
@@ -295,30 +297,30 @@ pub fn random_scene() -> HitList {
                     // diffuse
                     let albedo = Color::random() * Color::random();
                     let sphere_material = Diffuse::new(albedo);
-                    world_builder.add(Sphere::new(center, 0.2, sphere_material));
+                    world_builder.add(Sphere::new(center, 0.2, sphere_material.into()));
                 } else if choose_mat < 0.95 {
                     // metal
                     let albedo = Color::random();
                     let fuzz = random::<f64>() * 0.5;
                     let sphere_material = Metal::new(albedo, fuzz);
-                    world_builder.add(Sphere::new(center, 0.2, sphere_material));
+                    world_builder.add(Sphere::new(center, 0.2, sphere_material.into()));
                 } else {
                     // glass
                     let sphere_material = Dielectric::new(1.5);
-                    world_builder.add(Sphere::new(center, 0.2, sphere_material));
+                    world_builder.add(Sphere::new(center, 0.2, sphere_material.into()));
                 }
             }
         }
     }
 
     let material1 = Dielectric::new(1.5);
-    world_builder.add(Sphere::new(Point3::new(0.0, 1.0, 0.0), 1.0, material1));
+    world_builder.add(Sphere::new(Point3::new(0.0, 1.0, 0.0), 1.0, material1.into()));
 
     let material2 = Diffuse::new(Color::new(0.4, 0.2, 0.1));
-    world_builder.add(Sphere::new(Point3::new(-4.0, 1.0, 0.0), 1.0, material2));
+    world_builder.add(Sphere::new(Point3::new(-4.0, 1.0, 0.0), 1.0, material2.into()));
 
     let material3 = Metal::new(Color::new(0.7, 0.6, 0.5), 0.0);
-    world_builder.add(Sphere::new(Point3::new(4.0, 1.0, 0.0), 1.0, material3));
+    world_builder.add(Sphere::new(Point3::new(4.0, 1.0, 0.0), 1.0, material3.into()));
 
     return world_builder.build();
 }

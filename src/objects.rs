@@ -59,19 +59,34 @@ impl<Mat: Material> Hittable for Sphere<Mat> {
 
 pub type BoxHittable = Box<dyn Hittable + Send + Sync>;
 
+impl Hittable for Box<dyn Hittable + Send + Sync> {
+    #[inline]
+    fn hit(&self, ray: &Ray, bounds: Range<f64>) -> Option<Hit> {
+        self.as_ref().hit(ray, bounds)
+    }
+}
+
+impl<T: Hittable> Hittable for Vec<T> {
+    fn hit(&self, ray: &Ray, bounds: Range<f64>) -> Option<Hit> {
+        self.iter()
+            .filter_map(|hittable| hittable.hit(ray, bounds.clone()))
+            .min_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Greater))
+    }
+}
+
 #[derive(Default)]
-pub struct HitList {
+pub struct BoxedHitList {
     pub objects: Vec<BoxHittable>,
 }
 
-impl HitList {
+impl BoxedHitList {
     #[inline]
-    pub fn new(objects: Vec<BoxHittable>) -> HitList {
-        HitList { objects }
+    pub fn new(objects: Vec<BoxHittable>) -> BoxedHitList {
+        BoxedHitList { objects }
     }
 
-    pub fn empty() -> HitList {
-        HitList::default()
+    pub fn empty() -> BoxedHitList {
+        BoxedHitList::default()
     }
 
     pub fn add(&mut self, object: impl Hittable + Send + Sync + 'static) {
@@ -79,27 +94,41 @@ impl HitList {
     }
 }
 
-impl Hittable for HitList {
+impl Hittable for BoxedHitList {
+    #[inline]
     fn hit(&self, ray: &Ray, bounds: Range<f64>) -> Option<Hit> {
-        self.objects
-            .iter()
-            .filter_map(|hittable| hittable.hit(ray, bounds.clone()))
-            .min_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Greater))
+        self.objects.hit(ray, bounds)
     }
 }
 
-#[derive(Default)]
-pub struct WorldBuilder {
-    objects: Vec<BoxHittable>,
+pub struct WorldBuilder<T> {
+    objects: Vec<T>,
 }
 
-impl WorldBuilder {
-    pub fn build(&mut self) -> HitList {
-        HitList::new(std::mem::take(&mut self.objects))
+impl<T> WorldBuilder<T> {
+    pub fn build(&mut self) -> Vec<T> {
+        std::mem::take(&mut self.objects)
     }
 
-    pub fn add(&mut self, object: impl Hittable + Send + Sync + 'static) -> &mut Self {
+    pub fn add(&mut self, object: T) -> &mut Self {
+        self.objects.push(object);
+        self
+    }
+}
+
+impl WorldBuilder<Box<dyn Hittable + Send + Sync + 'static>> {
+    pub fn into_boxed_list(&mut self) -> BoxedHitList {
+        BoxedHitList::new(std::mem::take(&mut self.objects))
+    }
+
+    pub fn add_boxed(&mut self, object: impl Hittable + Send + Sync + 'static) -> &mut Self {
         self.objects.push(Box::new(object));
         self
+    }
+}
+
+impl<T> Default for WorldBuilder<T> {
+    fn default() -> WorldBuilder<T> {
+        WorldBuilder { objects: Vec::new() }
     }
 }
