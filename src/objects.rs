@@ -61,13 +61,13 @@ pub type BoxHittable = Box<dyn Hittable + Send + Sync>;
 
 impl Hittable for Box<dyn Hittable + Send + Sync> {
     #[inline]
-    fn hit(&self, ray: &Ray, bounds: Range<f64>) -> Option<Hit> {
+    fn hit(&self, ray: &Ray, bounds: Range<f32>) -> Option<Hit> {
         self.as_ref().hit(ray, bounds)
     }
 }
 
 impl<T: Hittable> Hittable for Vec<T> {
-    fn hit(&self, ray: &Ray, bounds: Range<f64>) -> Option<Hit> {
+    fn hit(&self, ray: &Ray, bounds: Range<f32>) -> Option<Hit> {
         self.iter()
             .filter_map(|hittable| hittable.hit(ray, bounds.clone()))
             .min_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Greater))
@@ -96,7 +96,7 @@ impl BoxedHitList {
 
 impl Hittable for BoxedHitList {
     #[inline]
-    fn hit(&self, ray: &Ray, bounds: Range<f64>) -> Option<Hit> {
+    fn hit(&self, ray: &Ray, bounds: Range<f32>) -> Option<Hit> {
         self.objects.hit(ray, bounds)
     }
 }

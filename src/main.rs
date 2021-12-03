@@ -28,8 +28,8 @@ fn main() {
 
     let render = RenderBuilder::new()
         .with_ratio(aspect_ratio, 720)
-        .with_samples(100)
-        .with_max_bounces(10)
+        .with_samples(32)
+        .with_max_bounces(8)
         .build();
 
     let look_from  = nalgebra_glm::vec3(13.0, 2.0, 3.0);
