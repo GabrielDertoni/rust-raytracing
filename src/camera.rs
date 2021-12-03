@@ -1,5 +1,5 @@
 
-use crate::vec3::{ Point3, Vec3 };
+use crate::utils::{ self, Point3, Vec3 };
 use crate::ray::Ray;
 
 pub struct Camera {
@@ -10,7 +10,7 @@ pub struct Camera {
     u: Vec3,
     v: Vec3,
     w: Vec3,
-    lens_radius: f64,
+    lens_radius: f32,
 }
 
 impl Camera {
@@ -18,10 +18,10 @@ impl Camera {
         look_from: Vec3,
         look_at: Vec3,
         vup: Vec3,
-        vert_fov: f64,
-        aspect_ratio: f64,
-        aperture: f64,
-        focus_dist: f64,
+        vert_fov: f32,
+        aspect_ratio: f32,
+        aperture: f32,
+        focus_dist: f32,
     ) -> Camera {
 
         let theta = vert_fov.to_radians();
@@ -29,8 +29,8 @@ impl Camera {
         let viewport_height = 2.0 * h;
         let viewport_width = aspect_ratio * viewport_height;
 
-        let w = (look_from - look_at).unit();
-        let u = vup.cross(&w).unit();
+        let w = (look_from - look_at).normalize();
+        let u = vup.cross(&w).normalize();
         let v = w.cross(&u);
 
         let origin = look_from;
@@ -52,8 +52,8 @@ impl Camera {
         }
     }
 
-    pub fn get_ray(&self, s: f64, t: f64) -> Ray {
-        let rand = Vec3::<f64>::random_in_unit_disc() * self.lens_radius;
+    pub fn get_ray(&self, s: f32, t: f32) -> Ray {
+        let rand = utils::random_in_unit_disc() * self.lens_radius;
         let offset = self.u * rand.x + self.v * rand.y;
         // The point at the viewport
         let viewport_point = self.lower_left_corner + self.horizontal * s + self.vertical * t;

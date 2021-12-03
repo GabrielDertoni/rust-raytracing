@@ -10,7 +10,7 @@ use crate::objects::{ BoxedHitList, Sphere };
 use crate::material::CommonMat;
 use crate::hittable::Hittable;
 use crate::camera::Camera;
-use crate::vec3::Color;
+use crate::utils::{ self, color, Color };
 
 pub struct Scene<T> {
     pub world: T,
@@ -26,7 +26,7 @@ impl<T: Hittable + Send + Sync> Scene<T> {
 
 #[derive(Debug, Clone)]
 pub struct Render {
-    pub aspect_ratio: f64,
+    pub aspect_ratio: f32,
     pub width: usize,
     pub height: usize,
     pub samples_per_pixel: usize,
@@ -35,7 +35,7 @@ pub struct Render {
 
 impl Render {
     pub fn new(
-        aspect_ratio: f64,
+        aspect_ratio: f32,
         width: usize,
         height: usize,
         samples_per_pixel: usize,
@@ -50,10 +50,10 @@ impl Render {
         }
     }
 
-    pub fn with_ratio(aspect_ratio: f64, height: usize) -> Self {
+    pub fn with_ratio(aspect_ratio: f32, height: usize) -> Self {
         Self {
             aspect_ratio,
-            width: (height as f64 * aspect_ratio).ceil() as usize,
+            width: (height as f32 * aspect_ratio).ceil() as usize,
             height,
             ..Self::default()
         }
@@ -87,8 +87,8 @@ impl RenderBuilder {
         self.render.clone()
     }
 
-    pub fn with_ratio(&mut self, aspect_ratio: f64, height: usize) -> &mut Self {
-        self.render.width = (height as f64 * aspect_ratio).ceil() as usize;
+    pub fn with_ratio(&mut self, aspect_ratio: f32, height: usize) -> &mut Self {
+        self.render.width = (height as f32 * aspect_ratio).ceil() as usize;
         self.render.height = height;
         self.render.aspect_ratio = aspect_ratio;
         self
@@ -107,7 +107,7 @@ impl RenderBuilder {
     pub fn with_dimensions(&mut self, width: usize, heigth: usize) -> &mut Self {
         self.render.width  = width;
         self.render.height = heigth;
-        self.render.aspect_ratio = width as f64 / heigth as f64;
+        self.render.aspect_ratio = width as f32 / heigth as f32;
         self
     }
 }
@@ -141,20 +141,21 @@ pub fn multi_thread_render<T: Hittable + Send + Sync>(scene: Scene<T>) {
 
             let pixel = rgb_mut_ref(pixel.try_into().unwrap());
 
-            let mut color = Color::black();
+            let mut color = color::black();
             for _ in 0..samples_per_pixel {
-                let u = (x as f64 + random::<f64>()) / (width  as f64 - 1.0);
-                let v = (y as f64 + random::<f64>()) / (height as f64 - 1.0);
+                let u = (x as f32 + random::<f32>()) / (width  as f32 - 1.0);
+                let v = (y as f32 + random::<f32>()) / (height as f32 - 1.0);
 
                 color += camera.get_ray(u, v).compute_color(&world, max_bounces);
             }
 
-            *pixel = (color / (samples_per_pixel as f64)).sqrt().into();
+            let pixel_val = color / (samples_per_pixel as f32);
+            *pixel = utils::to_rgb(nalgebra_glm::sqrt(&pixel_val));
 
             let oldval = count.fetch_add(1, Ordering::SeqCst);
 
             if oldval % 60 == 0 {
-                let percent = (oldval as f64 * 100.0) / (width * height as u32) as f64;
+                let percent = (oldval as f32 * 100.0) / (width * height as u32) as f32;
                 eprint!("\r[{:03.0}%] Rendering", percent);
             }
         });
@@ -194,18 +195,20 @@ pub fn simple_multi_thread_render<T: Hittable + Send + Sync>(scene: Scene<T>) {
             .map(rgb_mut_ref); // impl Iterator<Item = &mut Rgb<u8>>
 
         for (x, pixel) in row_iter.enumerate() {
-            let mut color = Color::black();
+            let mut color = color::black();
             for _ in 0..samples_per_pixel {
-                let u = (x as f64 + random::<f64>()) / (width  as f64 - 1.0);
-                let v = (y as f64 + random::<f64>()) / (height as f64 - 1.0);
+                let u = (x as f32 + random::<f32>()) / (width  as f32 - 1.0);
+                let v = (y as f32 + random::<f32>()) / (height as f32 - 1.0);
 
                 color += camera.get_ray(u, v).compute_color(&world, max_bounces);
             }
-            *pixel = (color / (samples_per_pixel as f64)).sqrt().into();
+
+            let pixel_val = color / (samples_per_pixel as f32);
+            *pixel = utils::to_rgb(nalgebra_glm::sqrt(&pixel_val));
 
             let oldval = count.fetch_add(1, Ordering::SeqCst);
             if oldval % 60 == 0 {
-                let percent = (oldval as f64 * 100.0) / (width * height) as f64;
+                let percent = (oldval as f32 * 100.0) / (width * height) as f32;
                 eprint!("\r[{:03.0}%] Rendering", percent);
             }
         }
@@ -248,18 +251,19 @@ pub fn single_thread_render<T: Hittable>(scene: Scene<T>) {
     let mut count = 0;
     for (x, y, pixel) in img.enumerate_pixels_mut() {
         let y = height - y;
-        let mut color = Color::black();
+        let mut color = color::black();
 
         for _ in 0..samples_per_pixel {
-            let u = (x as f64 + random::<f64>()) / (width  as f64 - 1.0);
-            let v = (y as f64 + random::<f64>()) / (height as f64 - 1.0);
+            let u = (x as f32 + random::<f32>()) / (width  as f32 - 1.0);
+            let v = (y as f32 + random::<f32>()) / (height as f32 - 1.0);
             color += camera.get_ray(u, v).compute_color(&world, max_bounces)
         }
 
-        *pixel = (color / (samples_per_pixel as f64)).sqrt().into();
+        let pixel_val = color / (samples_per_pixel as f32);
+        *pixel = utils::to_rgb(nalgebra_glm::sqrt(&pixel_val));
 
         count += 1;
-        let percent = (count as f64 * 100.0) / (width * height) as f64;
+        let percent = (count as f32 * 100.0) / (width * height) as f32;
         eprint!("\r[{:03.0}%] Rendering", percent);
     }
 
@@ -276,7 +280,7 @@ fn rgb_mut_ref<T: image::Primitive>(data: &mut [T; 3]) -> &mut image::Rgb<T> {
 pub fn random_scene() -> Vec<Sphere<CommonMat>> {
     use crate::objects::{ WorldBuilder, Sphere };
     use crate::material::{ Dielectric, Diffuse, Metal };
-    use crate::vec3::{ Vec3, Point3 };
+    use crate::utils::{ Vec3, Point3 };
 
     let mut world_builder = WorldBuilder::default();
 
@@ -285,23 +289,23 @@ pub fn random_scene() -> Vec<Sphere<CommonMat>> {
 
     for a in -11..11 {
         for b in -11..11 {
-            let choose_mat = random::<f64>();
-            let center = Point3::new(
-                a as f64 + 0.9 * random::<f64>(),
+            let choose_mat = random::<f32>();
+            let center = nalgebra_glm::vec3(
+                a as f32 + 0.9 * random::<f32>(),
                 0.2,
-                b as f64 + 0.9 * random::<f64>(),
+                b as f32 + 0.9 * random::<f32>(),
             );
 
-            if (center - Point3::new(4.0, 0.2, 0.0)).mag() > 0.9 {
+            if (center - nalgebra_glm::vec3(4.0, 0.2, 0.0)).magnitude() > 0.9 {
                 if choose_mat < 0.8 {
                     // diffuse
-                    let albedo = Color::random() * Color::random();
+                    let albedo = color::random().component_mul(&color::random());
                     let sphere_material = Diffuse::new(albedo);
                     world_builder.add(Sphere::new(center, 0.2, sphere_material.into()));
                 } else if choose_mat < 0.95 {
                     // metal
-                    let albedo = Color::random();
-                    let fuzz = random::<f64>() * 0.5;
+                    let albedo = color::random();
+                    let fuzz = random::<f32>() * 0.5;
                     let sphere_material = Metal::new(albedo, fuzz);
                     world_builder.add(Sphere::new(center, 0.2, sphere_material.into()));
                 } else {
